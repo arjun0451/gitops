@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: connectivity-script-config
+data:
+  connectivity-check.sh: |
+    #!/bin/bash
+
+    # Set the path to the input file from the ConfigMap
+    CONFIG_FILE="/config/connectivity-check.txt"
+
+    # Function to check connectivity
+    check_connectivity() {
+        local ip=$1
+        local port=$2
+
+        # Use nc (netcat) to check connectivity
+        if nc -z -w 5 $ip $port; then
+            echo "$ip:$port Connected"
+        else
+            echo "$ip:$port Failed"
+        fi
+    }
+
+    # Check if the input file exists
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        echo "Error: Config file not found at $CONFIG_FILE"
+        exit 1
+    fi
+
+    # Read the input file line by line
+    while IFS='|' read -r ip ports; do
+        # Skip empty lines or lines not matching the expected format
+        if [[ -z "$ip" || -z "$ports" ]]; then
+            continue
+        fi
+
+        # Split ports by comma
+        IFS=',' read -ra port_array <<< "$ports"
+
+        # Check each port
+        for port in "${port_array[@]}"; do
+            check_connectivity $ip $port
+        done
+    done < "$CONFIG_FILE"
